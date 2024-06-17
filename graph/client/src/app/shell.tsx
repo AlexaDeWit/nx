@@ -71,15 +71,15 @@ export function Shell(): JSX.Element {
   useLayoutEffect(() => {
     setErrors(routerErrors);
   }, [routerErrors]);
+
   useIntervalWhen(
-    () => {
-      fetchProjectGraph(
+    async () => {
+      const response: ProjectGraphClientResponse = await fetchProjectGraph(
         projectGraphDataService,
         params,
         environmentConfig.appConfig
-      ).then((response: ProjectGraphClientResponse) => {
-        setErrors(response.errors);
-      });
+      );
+      setErrors(response.errors);
     },
     1000,
     environmentConfig.watch

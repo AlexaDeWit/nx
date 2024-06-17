@@ -25,18 +25,18 @@ export function ErrorBoundary() {
 
   useIntervalWhen(
     async () => {
-      fetchProjectGraph(projectGraphDataService, params, appConfig).then(
-        (data) => {
-          if (
-            isRouteErrorResponse(error) &&
-            error.data.id === 'project-not-found' &&
-            data.projects.find((p) => p.name === error.data.projectName)
-          ) {
-            window.location.reload();
-          }
-          return;
-        }
+      const data = await fetchProjectGraph(
+        projectGraphDataService,
+        params,
+        appConfig
       );
+      if (
+        isRouteErrorResponse(error) &&
+        error.data.id === 'project-not-found' &&
+        data.projects.find((p) => p.name === error.data.projectName)
+      ) {
+        window.location.reload();
+      }
     },
     1000,
     watch

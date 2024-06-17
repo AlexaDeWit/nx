@@ -37,14 +37,14 @@ export function ProjectDetailsPage() {
 
   useIntervalWhen(
     async () => {
-      fetchProjectGraph(projectGraphDataService, params, appConfig).then(
-        (data) => {
-          if (data?.hash !== hash) {
-            window.location.reload();
-          }
-          return;
-        }
+      const data = await fetchProjectGraph(
+        projectGraphDataService,
+        params,
+        appConfig
       );
+      if (data?.hash !== hash) {
+        window.location.reload();
+      }
     },
     1000,
     watch
