@@ -9,10 +9,6 @@ import {
 import { NX_PREFIX } from '../../utils/logger';
 import { readJsonFile } from '../../utils/fileutils';
 import { workspaceRoot } from '../../utils/workspace-root';
-import {
-  ONLY_MODIFIES_EXISTING_TARGET,
-  OVERRIDE_SOURCE_FILE,
-} from '../../plugins/target-defaults/symbols';
 
 import { minimatch } from 'minimatch';
 import { join } from 'path';
@@ -42,12 +38,7 @@ export type ConfigurationSourceMaps = Record<
 
 export function mergeProjectConfigurationIntoRootMap(
   projectRootMap: Record<string, ProjectConfiguration>,
-  project: ProjectConfiguration & {
-    targets?: Record<
-      string,
-      TargetConfiguration & { [ONLY_MODIFIES_EXISTING_TARGET]?: boolean }
-    >;
-  },
+  project: ProjectConfiguration,
   configurationSourceMaps?: ConfigurationSourceMaps,
   sourceInformation?: SourceInformation,
   // This function is used when reading project configuration
@@ -191,17 +182,8 @@ export function mergeProjectConfigurationIntoRootMap(
 
       const target = project.targets?.[targetName];
 
-      if (sourceMap && !target?.[ONLY_MODIFIES_EXISTING_TARGET]) {
+      if (sourceMap) {
         sourceMap[`targets.${targetName}`] = sourceInformation;
-      }
-
-      // If ONLY_MODIFIES_EXISTING_TARGET is true, and its not on the matching project
-      // we shouldn't merge its info into the graph
-      if (
-        target?.[ONLY_MODIFIES_EXISTING_TARGET] &&
-        !matchingProject.targets?.[targetName]
-      ) {
-        continue;
       }
 
       const normalizedTarget = skipTargetNormalization
@@ -215,10 +197,6 @@ export function mergeProjectConfigurationIntoRootMap(
         sourceInformation,
         `targets.${targetName}`
       );
-
-      // We don't want the symbol to live on past the merge process
-      if (mergedTarget?.[ONLY_MODIFIES_EXISTING_TARGET])
-        delete mergedTarget?.[ONLY_MODIFIES_EXISTING_TARGET];
 
       updatedProjectConfiguration.targets[targetName] = mergedTarget;
     }
@@ -466,10 +444,6 @@ function mergeCreateNodesResults(
       nodes;
 
     const sourceInfo: SourceInformation = [file, pluginName];
-
-    if (result[OVERRIDE_SOURCE_FILE]) {
-      sourceInfo[0] = result[OVERRIDE_SOURCE_FILE];
-    }
 
     for (const node in projectNodes) {
       // Handles `{projects: {'libs/foo': undefined}}`.
@@ -752,8 +726,8 @@ export function mergeTargetDefaultWithTargetDefinition(
   targetDefault: Partial<TargetConfiguration>,
   sourceMap: Record<string, SourceInformation>
 ): TargetConfiguration {
-  const result = JSON.parse(JSON.stringify(targetDefault));
   const targetDefinition = project.targets[targetName] ?? {};
+  const result = JSON.parse(JSON.stringify(targetDefinition));
 
   for (const key in targetDefault) {
     switch (key) {
