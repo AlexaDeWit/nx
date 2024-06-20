@@ -35,6 +35,7 @@ export function buildPostTargetTransformer(migrationLogs: AggregatedLog) {
     if (target.configurations) {
       for (const configurationName in target.configurations) {
         const configuration = target.configurations[configurationName];
+        configValues[configurationName] ??= {};
 
         handlePropertiesFromTargetOptions(
           tree,
@@ -44,10 +45,6 @@ export function buildPostTargetTransformer(migrationLogs: AggregatedLog) {
           configValues[configurationName],
           migrationLogs
         );
-
-        if (Object.keys(configuration).length === 0) {
-          delete target.configurations[configurationName];
-        }
       }
 
       if (Object.keys(target.configurations).length === 0) {
@@ -75,7 +72,13 @@ export function buildPostTargetTransformer(migrationLogs: AggregatedLog) {
       });
     }
 
-    setRemixConfigToUseConfigValueForOutput(
+    setServerBuildPathToUseConfigValueForOutput(
+      tree,
+      remixConfigPath,
+      projectDetails.projectName,
+      migrationLogs
+    );
+    setAssetsBuildDirectoryToUseConfigValueForOutput(
       tree,
       remixConfigPath,
       projectDetails.projectName,
@@ -134,7 +137,7 @@ function handlePropertiesFromTargetOptions(
   }
 }
 
-function setRemixConfigToUseConfigValueForOutput(
+function setServerBuildPathToUseConfigValueForOutput(
   tree: Tree,
   configFilePath: string,
   projectName: string,
@@ -145,6 +148,7 @@ function setRemixConfigToUseConfigValueForOutput(
 
   let startPosition = 0;
   let endPosition = 0;
+  let serverBuildPathNodeToInsert = 'options.outputPath + "/build/index.js"';
 
   const OUTPUT_PATH_SELECTOR =
     'ExportAssignment ObjectLiteralExpression PropertyAssignment:has(Identifier[name=serverBuildPath]) > StringLiteral';
@@ -167,8 +171,9 @@ function setRemixConfigToUseConfigValueForOutput(
       });
       return;
     } else {
-      startPosition = configNodes[1].getStart();
+      startPosition = configNodes[0].getStart() + 1;
       endPosition = startPosition;
+      serverBuildPathNodeToInsert = `serverBuildPath: ${serverBuildPathNodeToInsert},`;
     }
   }
 
@@ -177,6 +182,55 @@ function setRemixConfigToUseConfigValueForOutput(
     `${configFileContents.slice(
       0,
       startPosition
-    )}options.outputPath${configFileContents.slice(endPosition)}`
+    )}${serverBuildPathNodeToInsert}${configFileContents.slice(endPosition)}`
+  );
+}
+
+function setAssetsBuildDirectoryToUseConfigValueForOutput(
+  tree: Tree,
+  configFilePath: string,
+  projectName: string,
+  migrationLogs: AggregatedLog
+) {
+  const configFileContents = tree.read(configFilePath, 'utf-8');
+  const ast = tsquery.ast(configFileContents);
+
+  let startPosition = 0;
+  let endPosition = 0;
+  let nodeToInsert = 'options.outputPath + "/public/build"';
+
+  const OUTPUT_PATH_SELECTOR =
+    'ExportAssignment ObjectLiteralExpression PropertyAssignment:has(Identifier[name=assetsBuildDirectory]) > StringLiteral';
+  const outputPathNodes = tsquery(ast, OUTPUT_PATH_SELECTOR, {
+    visitAllChildren: true,
+  });
+  if (outputPathNodes.length !== 0) {
+    startPosition = outputPathNodes[0].getStart();
+    endPosition = outputPathNodes[0].getEnd();
+  } else {
+    const EXPORT_CONFIG_SELECTOR = 'ExportAssignment ObjectLiteralExpression';
+    const configNodes = tsquery(ast, EXPORT_CONFIG_SELECTOR, {
+      visitAllChildren: true,
+    });
+    if (configNodes.length === 0) {
+      migrationLogs.addLog({
+        project: projectName,
+        executorName: '@nx/remix:build',
+        log: 'Unable to update Remix Config to set `assetsBuildDirectory` to custom `outputPath` found in project.json. Please update this manually.',
+      });
+      return;
+    } else {
+      startPosition = configNodes[0].getStart() + 1;
+      endPosition = startPosition;
+      nodeToInsert = `assetsBuildDirectory: ${nodeToInsert},`;
+    }
+  }
+
+  tree.write(
+    configFilePath,
+    `${configFileContents.slice(
+      0,
+      startPosition
+    )}${nodeToInsert}${configFileContents.slice(endPosition)}`
   );
 }

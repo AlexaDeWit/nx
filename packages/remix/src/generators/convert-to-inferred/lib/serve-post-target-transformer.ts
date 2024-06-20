@@ -28,10 +28,6 @@ export function servePostTargetTransformer(migrationLogs: AggregatedLog) {
           projectDetails.projectName,
           projectDetails.root
         );
-
-        if (Object.keys(configuration).length === 0) {
-          delete target.configurations[configurationName];
-        }
       }
 
       if (Object.keys(target.configurations).length === 0) {
@@ -64,7 +60,8 @@ function handlePropertiesFromTargetOptions(
   }
 
   if ('port' in options) {
-    options.env.PORT = options.port;
+    options.env ??= {};
+    options.env.PORT = `${options.port}`;
     delete options.port;
   }
 
