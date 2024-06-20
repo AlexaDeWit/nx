@@ -1,0 +1,8 @@
+# Troubleshoot Unexpected Cache Hits
+
+Problem: A task is being resolved from the cache when a file that is important to the build has been changed.
+
+1. Check if the changed file is present in `.gitignore`
+
+   - If the changed file needs to be ignored:
+     - Add a corresponding unignore line in `.nxignore`, ie. `!.filename`
